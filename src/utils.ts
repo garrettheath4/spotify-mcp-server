@@ -1,13 +1,14 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import http from 'node:http';
+import os from 'node:os';
 import path from 'node:path';
-import { URL, fileURLToPath } from 'node:url';
+import { URL } from 'node:url';
 import { SpotifyApi } from '@spotify/web-api-ts-sdk';
 import open from 'open';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const CONFIG_FILE = path.join(__dirname, '../spotify-config.json');
+const TOKEN_DIR = path.join(os.homedir(), '.config', 'spotify-mcp-server');
+const TOKEN_FILE = path.join(TOKEN_DIR, 'tokens.json');
 
 export interface SpotifyConfig {
   clientId: string;
@@ -17,32 +18,59 @@ export interface SpotifyConfig {
   refreshToken?: string;
 }
 
+interface TokenData {
+  accessToken: string;
+  refreshToken: string;
+}
+
+function loadTokens(): TokenData | null {
+  try {
+    if (fs.existsSync(TOKEN_FILE)) {
+      return JSON.parse(fs.readFileSync(TOKEN_FILE, 'utf8'));
+    }
+  } catch {
+    // Ignore errors reading token file
+  }
+  return null;
+}
+
+function saveTokens(tokens: TokenData): void {
+  if (!fs.existsSync(TOKEN_DIR)) {
+    fs.mkdirSync(TOKEN_DIR, { recursive: true });
+  }
+  fs.writeFileSync(TOKEN_FILE, JSON.stringify(tokens, null, 2), 'utf8');
+}
+
 export function loadSpotifyConfig(): SpotifyConfig {
-  if (!fs.existsSync(CONFIG_FILE)) {
+  const clientId = process.env.SPOTIFY_CLIENT_ID;
+  const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
+  const redirectUri =
+    process.env.SPOTIFY_REDIRECT_URI || 'http://127.0.0.1:8888/callback';
+
+  if (!clientId || !clientSecret) {
     throw new Error(
-      `Spotify configuration file not found at ${CONFIG_FILE}. Please create one with clientId, clientSecret, and redirectUri.`,
+      'Missing required environment variables: SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET must be set.',
     );
   }
 
-  try {
-    const config = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
-    if (!(config.clientId && config.clientSecret && config.redirectUri)) {
-      throw new Error(
-        'Spotify configuration must include clientId, clientSecret, and redirectUri.',
-      );
-    }
-    return config;
-  } catch (error) {
-    throw new Error(
-      `Failed to parse Spotify configuration: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-    );
-  }
+  const tokens = loadTokens();
+
+  return {
+    clientId,
+    clientSecret,
+    redirectUri,
+    accessToken: tokens?.accessToken,
+    refreshToken: tokens?.refreshToken,
+  };
 }
 
 export function saveSpotifyConfig(config: SpotifyConfig): void {
-  fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), 'utf8');
+  if (config.accessToken && config.refreshToken) {
+    saveTokens({
+      accessToken: config.accessToken,
+      refreshToken: config.refreshToken,
+    });
+  }
 }
 
 let cachedSpotifyApi: SpotifyApi | null = null;
@@ -150,7 +178,6 @@ export async function authorizeSpotify(): Promise<void> {
     'user-read-private',
     'user-read-email',
     'user-read-playback-state',
-    'user-modify-playback-state',
     'user-read-currently-playing',
     'playlist-read-private',
     'playlist-modify-private',
@@ -159,8 +186,6 @@ export async function authorizeSpotify(): Promise<void> {
     'user-library-modify',
     'user-read-recently-played',
     'user-modify-playback-state',
-    'user-read-playback-state',
-    'user-read-currently-playing',
   ];
 
   const authParams = new URLSearchParams({

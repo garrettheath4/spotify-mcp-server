@@ -1,14 +1,18 @@
 #!/usr/bin/env node
 
+import { createRequire } from 'node:module';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { albumTools } from './albums.js';
 import { playTools } from './play.js';
 import { readTools } from './read.js';
 
+const require = createRequire(import.meta.url);
+const pkg = require('../package.json');
+
 const server = new McpServer({
   name: 'spotify-controller',
-  version: '1.0.0',
+  version: pkg.version,
 });
 
 [...readTools, ...playTools, ...albumTools].forEach((tool) => {
