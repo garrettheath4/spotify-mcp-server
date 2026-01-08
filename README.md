@@ -309,7 +309,7 @@ npm run auth
 {
   "clientId": "your-client-id",
   "clientSecret": "your-client-secret",
-  "redirectUri": "http://localhost:8888/callback",
+  "redirectUri": "http://127.0.0.1:8888/callback",
   "accessToken": "BQAi9Pn...kKQ",
   "refreshToken": "AQDQcj...7w",
   "expiresAt": 1677889354671

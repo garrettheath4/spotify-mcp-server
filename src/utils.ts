@@ -156,14 +156,13 @@ export async function authorizeSpotify(): Promise<void> {
 
   const redirectUri = new URL(config.redirectUri);
   if (
-    redirectUri.hostname !== 'localhost' &&
     redirectUri.hostname !== '127.0.0.1'
   ) {
     console.error(
-      'Error: Redirect URI must use localhost for automatic token exchange',
+      'Error: Redirect URI must use 127.0.0.1 for automatic token exchange',
     );
     console.error(
-      'Please update your spotify-config.json with a localhost redirect URI',
+      'Please update your spotify-config.json with a 127.0.0.1 redirect URI',
     );
     console.error('Example: http://127.0.0.1:8888/callback');
     process.exit(1);
@@ -206,7 +205,7 @@ export async function authorizeSpotify(): Promise<void> {
         return res.end('No URL provided');
       }
 
-      const reqUrl = new URL(req.url, `http://localhost:${port}`);
+      const reqUrl = new URL(req.url, `http://127.0.0.1:${port}`);
 
       if (reqUrl.pathname === callbackPath) {
         const code = reqUrl.searchParams.get('code');
